@@ -366,8 +366,15 @@ function renderCard(id, acc) {
 
   return `<div class="card ${stClass}" id="card-${id}">
     <div class="ch">
-      <div class="av">🎮</div>
-      <div><div class="cn">${acc.name} ${hasToken}</div><div class="cs">ترقيات اليوم: ${acc.upgrades} | آخر: ${acc.last_upgrade}</div></div>
+      <div class="av" style="overflow:hidden;padding:0">
+        ${acc.avatar 
+          ? `<img src="${acc.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML='🎮'">`
+          : '🎮'}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cn">${acc.name} ${hasToken}</div>
+        <div class="cs">${acc.rank ? acc.rank + ' | ' : ''}ترقيات: ${acc.upgrades} | آخر: ${acc.last_upgrade}</div>
+      </div>
       ${badge}
     </div>
     <div class="cb">
@@ -434,7 +441,7 @@ function addLogEntry(e) {
   const body = document.getElementById('log-body');
   const div = document.createElement('div');
   div.className = `ll ${e.level}`;
-  div.innerHTML = `<span class="lt2">${e.time}</span><span class="la">[${state[e.acc_id]?.name || e.acc_id}]</span><span class="lm">${e.msg}</span>`;
+  div.innerHTML = `<span class="lt2">${e.time}</span><span class="la">[${state[e.slot]?.name || e.slot}]</span><span class="lm">${e.msg}</span>`;
   body.insertBefore(div, body.firstChild);
   if (body.children.length > 80) body.lastChild.remove();
 }
@@ -518,6 +525,8 @@ def init_db():
             currency TEXT DEFAULT 'diamond',
             upgrades INTEGER DEFAULT 0,
             last_upgrade TEXT DEFAULT '—',
+            avatar TEXT DEFAULT '',
+            rank TEXT DEFAULT '',
             FOREIGN KEY(user_id) REFERENCES users(id),
             UNIQUE(user_id, slot)
         );
@@ -631,11 +640,16 @@ def refresh_profile(user_id, slot, token):
             s['level']['scientist'] = bi.get('level', '?') if isinstance(bi, dict) else '?'
         # update name in db
         uname = p.get('username')
+        avatar = p.get('avatar', '') or p.get('profile_image', '') or p.get('image', '')
+        rank = p.get('rank', '') or p.get('title', '') or p.get('military_rank', '')
         if uname:
             db = get_db()
-            db.execute('UPDATE accounts SET name=? WHERE user_id=? AND slot=?', (uname, user_id, slot))
+            db.execute('UPDATE accounts SET name=?, avatar=?, rank=? WHERE user_id=? AND slot=?', 
+                      (uname, avatar, rank, user_id, slot))
             db.commit()
             db.close()
+            s['avatar'] = avatar
+            s['rank'] = rank
         return True
     except Exception as e:
         log.error(f"Profile parse: {e}")
@@ -881,6 +895,17 @@ def api_config(slot):
     db.commit()
     db.close()
     add_log(user_id, slot, '⚙️ تم حفظ الإعدادات', 'info')
+    # لو في token جديد — اجلب بيانات الحساب تلقائي
+    if 'token' in data and data['token']:
+        token = data['token'].strip()
+        def fetch_on_save():
+            if refresh_profile(user_id, slot, token):
+                s = get_user_state(user_id)[slot]
+                add_log(user_id, slot, f"✅ تم ربط الحساب | {s['balance']} | 💎{s['diamonds']}", 'ok')
+            else:
+                add_log(user_id, slot, '⚠️ Token خاطئ أو منتهي', 'warn')
+        import threading as _t
+        _t.Thread(target=fetch_on_save, daemon=True).start()
     return jsonify({'status': 'ok'})
 
 # ── SocketIO ───────────────────────────────────────
