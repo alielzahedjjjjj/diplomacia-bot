@@ -494,11 +494,12 @@ ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin123')
 
 # ── Database ───────────────────────────────────────
 def get_db():
-    db = sqlite3.connect('bot.db', check_same_thread=False)
+    db = sqlite3.connect(os.environ.get('DB_PATH', '/data/bot.db'), check_same_thread=False)
     db.row_factory = sqlite3.Row
     return db
 
 def init_db():
+    os.makedirs(os.path.dirname(os.environ.get('DB_PATH', '/data/bot.db')), exist_ok=True)
     db = get_db()
     db.executescript('''
         CREATE TABLE IF NOT EXISTS users (
