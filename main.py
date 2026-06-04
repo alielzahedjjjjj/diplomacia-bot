@@ -345,7 +345,7 @@ function renderCard(id, acc) {
 
   const perksHtml = Object.entries(PERKS).map(([key, p]) => {
     const isSel = acc.perk === key;
-    const lvl = acc.level?.[key] || '?';
+    const lvl = acc.level?.[key] !== undefined ? acc.level[key] : '?';
     let cdHtml = `<span class="pcd rdy">جاهز ✓</span>`;
     if (isSel && acc.enabled && acc.cooldown > 0) {
       cdHtml = `<span class="pcd upg">${fmt(acc.cooldown)}</span>`;
@@ -366,14 +366,15 @@ function renderCard(id, acc) {
 
   return `<div class="card ${stClass}" id="card-${id}">
     <div class="ch">
-      <div class="av" style="overflow:hidden;padding:0">
+      <div class="av" style="overflow:hidden;padding:0;position:relative">
         ${acc.avatar 
           ? `<img src="${acc.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML='🎮'">`
           : '🎮'}
+        ${acc.flag ? `<img src="${acc.flag}" style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-radius:2px">` : ''}
       </div>
       <div style="flex:1;min-width:0">
-        <div class="cn">${acc.name} ${hasToken}</div>
-        <div class="cs">${acc.rank ? acc.rank + ' | ' : ''}ترقيات: ${acc.upgrades} | آخر: ${acc.last_upgrade}</div>
+        <div class="cn">${acc.name} <span style="font-size:10px;color:var(--muted)">Lv.${acc.player_level||'?'}</span></div>
+        <div class="cs">${acc.rank ? acc.rank.replace('levelTitles.','') + ' | ' : ''}ترقيات: ${acc.upgrades}</div>
       </div>
       ${badge}
     </div>
